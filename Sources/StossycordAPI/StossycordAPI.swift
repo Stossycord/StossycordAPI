@@ -13,7 +13,7 @@ public struct StossycordAPI {
     public var onDeleteMessage: ((String) -> Void)?
     public var onEditMessage: ((Message) -> Void)?
     
-    init(token: String) {
+    public init(token: String) {
         websocket = WebSocketService(token: token)
         
         self.token = token
