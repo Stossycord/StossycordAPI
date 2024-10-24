@@ -3,7 +3,7 @@
 
 import Foundation
 
-public struct StossycordAPI {
+public class StossycordAPI {
     
     private var websocket: WebSocketService
     
