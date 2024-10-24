@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct User: Codable {
+public struct User: Codable {
     let id: String
     let username: String
     let discriminator: String

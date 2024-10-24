@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Message: Codable {
+public struct Message: Codable {
     let channelId: String
     var content: String
     let messageId: String
@@ -25,7 +25,7 @@ struct Message: Codable {
     }
 }
 
-struct Attachment: Codable {
+public struct Attachment: Codable {
     let url: String
     let id: String
     

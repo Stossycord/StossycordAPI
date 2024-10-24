@@ -1,4 +1,13 @@
-func SendMessageWithButtons(content: String, token: String, channel: String) {
+//
+//  SendInteractiveMessage.swift
+//  StossycordAPI
+//
+//  Created by Stossy11 on 24/10/2024.
+//
+
+import Foundation
+
+func SendInteractiveMessage(_ messageData: InteractiveMessage, token: String, channel: String) {
     let url = URL(string: "https://discord.com/api/v10/channels/\(channel)/messages")!
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -6,24 +15,9 @@ func SendMessageWithButtons(content: String, token: String, channel: String) {
     request.addValue(token, forHTTPHeaderField: "Authorization")
     request.addValue("application/json", forHTTPHeaderField: "Content-Type")
     
-    let messageData: [String: Any] = [
-        "content": content,
-        "components": [
-            [
-                "type": 1, // Action row
-                "components": [
-                    [
-                        "type": 2, // Button
-                        "label": "Click me!",
-                        "style": 1, // Primary button style
-                        "custom_id": "button_click"
-                    ]
-                ]
-            ]
-        ]
-    ]
-    
-    request.httpBody = try? JSONSerialization.data(withJSONObject: messageData)
+    // Encode the message data to JSON
+    let jsonData = try? JSONEncoder().encode(messageData)
+    request.httpBody = jsonData
     
     let task = URLSession.shared.dataTask(with: request) { data, response, error in
         if let error = error {

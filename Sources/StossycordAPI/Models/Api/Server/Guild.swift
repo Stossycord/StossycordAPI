@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Guild: Codable {
+public struct Guild: Codable {
     let id: String
     let name: String
     let icon: String?

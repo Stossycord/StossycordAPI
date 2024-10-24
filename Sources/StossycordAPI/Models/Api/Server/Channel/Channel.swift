@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Channel: Codable {
+public struct Channel: Codable {
     let id: String
     let name: String
     let type: Int

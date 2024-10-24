@@ -1,27 +1,19 @@
 import Foundation
 import AVFoundation
-import KeychainSwift
 import Network
 
-class WebSocketService {
-    var currentUser: User
+class WebSocketService: @unchecked Sendable {
     var isConnected: Bool = false
-    var data: [Message] = []
-    var channels: [Channel] = []
-    var dms: [DMs] = []
-    var currentchannel: String = ""
+
     var isNetworkAvailable: Bool = true // Network status tracking
-    var Guilds: [Guild] = []
-    var currentguild: Guild = Guild(id: "", name: "", icon: "")
-    let keychain = KeychainSwift()
     var token: String
-    var deviceInfo: DeviceInfo = CurrentDeviceInfo.shared.deviceInfo
     var heartbeatTimer: Timer?
     var lastHeartbeatAck: Bool = true
     var heartbeatInterval: TimeInterval = 0
     var onNewMessage: ((Message) -> Void)?
+    var onDeleteMessage: ((String) -> Void)?
+    var onEditMessage: ((Message) -> Void)?
 
-    private let monitor = NWPathMonitor()
     private let queue = DispatchQueue.global(qos: .background)
 
     // Reconnection properties
@@ -31,27 +23,18 @@ class WebSocketService {
     private var webSocketTask: URLSessionWebSocketTask?
     private let urlSession: URLSession
 
-    init() {
-        token = KeychainSwift().get("token") ?? ""
-        currentUser = User(id: "", username: "", discriminator: "", avatar: "")
+    init(token: String) {
+        self.token = token
         urlSession = URLSession(configuration: .default)
-
-        if !token.isEmpty {
-            DispatchQueue.global(qos: .background).async {
-                self.connect()
-            }
-        }
     }
 
-    func connect() {
-        token = KeychainSwift().get("token") ?? ""
+    public func connect() {
         guard !token.isEmpty else {
             print("Token is empty!")
             return
         }
 
-        getdiscordstuff()
-        setupNetworkMonitor()
+        // getdiscordstuff()
 
         let url = URL(string: "wss://gateway.discord.gg/?encoding=json&v=9")!
         webSocketTask = urlSession.webSocketTask(with: url)
@@ -64,36 +47,13 @@ class WebSocketService {
         let payload: [String: Any] = [
             "op": 2,
             "d": [
-                "token": token,
-                "capabilities": 30717,
-                "properties": [
-                    "os": deviceInfo.os,
-                    "device": "",
-                    "browser_version": deviceInfo.browserVersion,
-                    "os_version": deviceInfo.osVersion,
-                ]
+                "token": token
+                // "capabilities": 30717,
             ]
         ]
         sendJSON(payload)
     }
 
-    func getdiscordstuff() {
-        CurrentUser(token: token) { user in
-            if let user = user {
-                self.currentUser = user
-            } else {
-                print("Unable to get User")
-            }
-        }
-
-        getDiscordGuilds(token: token) { result in
-            self.Guilds = result
-        }
-
-        getDiscordDMs(token: token) { items in
-            self.dms = items
-        }
-    }
 
     func disconnect() {
         reconnectionTimer?.invalidate()
@@ -118,16 +78,16 @@ class WebSocketService {
     }
 
     private func receiveMessage() {
-        webSocketTask?.receive { [weak self] result in
+        webSocketTask?.receive { [self] result in
             switch result {
             case .failure(let error):
                 print("Error receiving message: \(error)")
-                self?.connect()
+                self.connect()
             case .success(let message):
                 switch message {
                 case .string(let text):
                     // print("Received text: \(text)")
-                    self?.handleMessage(text)
+                    self.handleMessage(text)
                 case .data(let data):
                     break
                     // print("Received data: \(data)")
@@ -136,41 +96,9 @@ class WebSocketService {
                     break
                 }
                 // Listen for the next message
-                self?.receiveMessage()
+                self.receiveMessage()
             }
         }
-    }
-
-    func scheduleReconnection() {
-        if reconnectionAttempts < maxReconnectionAttempts {
-            let delay = pow(2.0, Double(reconnectionAttempts)) // Exponential backoff
-            reconnectionAttempts += 1
-            print("Attempting to reconnect in \(delay) seconds...")
-            reconnectionTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-                self?.connect()
-                print("connected")
-            }
-        } else {
-            print("Max reconnection attempts reached. Stopping retries.")
-        }
-    }
-
-    private func setupNetworkMonitor() {
-        monitor.pathUpdateHandler = { [self] path in
-            DispatchQueue.main.async {
-                if path.status == .satisfied {
-                    print("Network is available")
-                    self.isNetworkAvailable = true
-                    if !self.isConnected {
-                        self.connect()
-                    }
-                } else {
-                    print("Network is unavailable")
-                    self.isNetworkAvailable = false
-                }
-            }
-        }
-        monitor.start(queue: queue)
     }
 
     func handleMessage(_ string: String) {
@@ -200,7 +128,10 @@ class WebSocketService {
     }
 
     func handleDeleteMessage(json: [String: Any]) {
-        data.removeAll { $0.messageId == (json["d"] as? [String: Any])?["message_id"] as? String }
+        
+        let messageid = ((json["d"] as? [String: Any])?["message_id"] as? String)
+        
+        // data.removeAll { $0.messageId == (json["d"] as? [String: Any])?["message_id"] as? String }
     }
 
     func handleHello(json: [String: Any]) {
@@ -231,7 +162,7 @@ class WebSocketService {
 
 
     func handleChatMessage(json: [String: Any], eventType: String) {
-        guard let json = json["d"] as? [String: Any], let channelId = json["channel_id"] as? String, channelId == currentchannel else { return }
+        guard let json = json["d"] as? [String: Any] else { return }
 
         var currentMessage: Message
         do {
@@ -242,14 +173,20 @@ class WebSocketService {
             print("Error decoding Message:", error)
             return
         }
-
+        if eventType == "MESSAGE_CREATE" {
+            onNewMessage?(currentMessage)
+        } else {
+            onEditMessage?(currentMessage)
+        }
+        
+        /*
         if eventType == "MESSAGE_CREATE" {
             data.append(currentMessage)
-            onNewMessage?(currentMessage)
         } else if eventType == "MESSAGE_UPDATE" {
             if let index = data.firstIndex(where: { $0.messageId == currentMessage.messageId }) {
                 data[index].content = currentMessage.content
             }
         }
+         */
     }
 }

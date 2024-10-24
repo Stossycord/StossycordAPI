@@ -8,17 +8,18 @@
 
 import Foundation
 
-struct MessageData: Codable {
+public struct InteractiveMessage: Codable {
+    let channelid: String
     let content: String
     let components: [ActionRow]
 }
 
-struct ActionRow: Codable {
+public struct ActionRow: Codable {
     let type: Int // Always 1 for ActionRow
     let components: [ButtonComponent]
 }
 
-struct ButtonComponent: Codable {
+public struct ButtonComponent: Codable {
     let type: Int // Always 2 for Button
     let label: String
     let style: Int
